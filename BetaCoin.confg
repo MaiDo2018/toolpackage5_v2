@@ -1,0 +1,43 @@
+{
+
+		cout<<endl<<"\e[1;33m"<<"Loading setting parameters from BetaCoin.confg"<<"\e[0m"<<endl;
+
+
+		ShapingTime[0] = 500;  ShapingTime[1] = 500;  // shaping time in unit ns
+		MCAThreshold[0] = 500;  MCAThreshold[1] = 110; // MCA threshold setting [0] -> ch 1; [1] -> ch2
+		ADC_max_ch=16384;  // MCA maximum channel
+
+		MakeBetaRawTree=false;  // Make beta raw tree or not. --> consume hard disk space, but save RAM and time; NOTE: ONLY available in !BetaFastMode  !!!!!
+
+		BetaFastMode=false; // false -> load beta.lst in RAM (consume RAM but not require extra hard disk space);  true--> load only relevant beta.lst (time consuming, but require less RAM and hard disk space)
+		alphaMode=false;
+		//Path_beta_file=FilePath+"../";
+		ReadBetaOnline=false;
+		OnlineBetaFilePath="/mnt/beta_driver/F11_MRTOF/240619MT/usb/";
+		RecordOnly_1st_beta=false; // just keep first positive beta corresponding to TOF. 
+		RecordOnly_1st_beta_neg = false; // by default(no mattter set to true or false): using the average interval of the closet negative beta to Tof to evaluate the beta background rate
+												// set to "false" enable second method: beta counts / total observation time to evaluate the beta background rate; This result replaces the result by method 1
+		Times2Halflive=10;
+		SetRIHalflife(1180); // in [ms]
+		SetBeta_E_Calibrate_para(0.2159461,-24.7021,0.360014,-6.56918);
+		//SetBeta_E_Calibrate_para(1,0,1,0);
+
+		b2tob1_standard = 20;//-200; //-200;  // standard value of b2_time - b1_time depend on shaping time if shape t1 > shape t2 ==> t2-t1 <0
+		SetCoinCondition(1500,0,16384,0,16384,b2tob1_standard);
+
+
+		//******* display for beta raw histograms *************
+		DownScale=1;  // for beta raw histogram display; get data per "DownScale" events --> set a larger value to speed up; "DownScale" ==0; --> no draw
+
+
+
+		//********** Set ADC threshold to filter raw data from each Si ***********
+		// data below threshold will be skiped and will not be in RAM
+		PreSetADC1_low_Thres_ch=1200; //1300; //1300; //500; //1200
+		PreSetADC2_low_Thres_ch=200; //200; //200; //190;//200
+		
+		binwidth_fraction_halflife=10; // binwidth = halflife/10; for binwith of beta decay time spectrum
+
+		BetaBetaFilter=true; // false-> keep all beta-beta coin. event in time gate; true-> keep only the beta-beta combination with time different approaching given time different value "b2tob1_standard" 
+
+}
