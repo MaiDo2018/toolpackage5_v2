@@ -1694,7 +1694,7 @@ cout<<endl;
 
 
 
-Long64_t DownScale=100; // for beta raw histogram display; get data per DownScale events
+Long64_t DownScale=1; // for beta raw histogram display; get data per DownScale events
 bool StopFillBetaRawHisto = false;
 void SetStopFillBetaRawHisto(int sig){
 	StopFillBetaRawHisto =true;
