@@ -108,8 +108,8 @@ char ctem;
 
 	SetParLimitAuto(ftemp,_Norder);
 
-	for(int i=0;i<10;i++){
-		if(i<2 || i>9) h_random->Fit(ftemp,"MNQ","",fitlowedge,fithighedge);
+	for(int i=0;i<15;i++){
+		if(i<3 || i>14) h_random->Fit(ftemp,"MNQ","",fitlowedge,fithighedge);
 		else h_random->Fit(ftemp,"LMNQ","",fitlowedge,fithighedge);
 		SetParLimitAuto(ftemp,_Norder);
 
@@ -133,8 +133,8 @@ sleep(1); // Seem this pause for the system can help to prevent the clash of the
 		h_random->Add((TH1*)h_sub,-1); h_random->Draw();
 		cout<<"i ="<<i<<"\r"<<flush;
 		int j=0;
-		while(j++<10){
-			if(j<3 ||j >9) h_random->Fit(ftemp,"MEQN","",fitlowedge,fithighedge);//fitopt.c_str()
+		while(j++<15){
+			if(j<3 ||j >13) h_random->Fit(ftemp,"MEQN","",fitlowedge,fithighedge);//fitopt.c_str()
 			else h_random->Fit(ftemp,"LMEQN","",fitlowedge,fithighedge);
 			SetParLimitAuto(ftemp,_Norder);
 
