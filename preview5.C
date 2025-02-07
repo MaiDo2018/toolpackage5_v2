@@ -1067,7 +1067,8 @@ int laps_ref = 600;
 int laps_x = laps_ref;
 int q_x = 1;
 //const double KEV90 = 0.93149400380; const double err_KEV90 = 0.0004*1e-6; // 1 u = 931494.0038 KEV90, mass unit in micro u in program
-const double KEV90 = 0.93149410242; const double err_KEV90 = 0.00028*1e-6;
+const double KEV90 = 0.93149410242; const double err_KEV90 = 0.00028*1e-6; 
+const double Coeff_keV_2_uamu = 1.07354410233; const double err_Coeff_keV_2_uamu= 0.00000000032;
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 
 //&&&&&&&&&& variable for component mass &&&&&&&&&&&&&&&&&
@@ -1504,6 +1505,7 @@ if(!dflag)useTOFveto(veto_test);
 				h_xF->Draw();
 			}
 			else h_xF->Draw();
+
 		c1->cd(3);
 			if(dflag){//intree->Draw("time>>h_refF","tag==1");
 				h_refF->Draw();
@@ -1603,6 +1605,7 @@ if(!dflag)useTOFveto(veto_test);
 		h_xF->GetYaxis()->SetTitle(Form("counts/%.1f [ns]",(tag0H-tag0L)/binsfuspectrum));
 		h_xF->GetYaxis()->SetTitleSize(0.05);
 		h_xF->GetYaxis()->CenterTitle();
+		h_xF->SetTitle(Form("channel =%d, veto=%.1f [ns] @ %d laps",Tof_Channel2Read,Tof_veto,laps_x));
 	}	
 	if(h_refF!=NULL){
 		h_refF->GetXaxis()->SetTitle("tof[ns]");
@@ -2042,7 +2045,7 @@ void histo_zoom_in_x(int tag=0,int bins=0,double histoL=0,double histoR=0){
 	if(h_zoom_x!=NULL){delete h_zoom_x; h_zoom_x=NULL;}//h_zoom_x->Clear();
 	//if(h_zoom_x_shadow!=NULL){delete h_zoom_x_shadow;h_zoom_x_shadow=NULL;}
 
-	h_zoom_x = new TH1D("h_zoom_x",Form("X ion tag%d zoom in",tag),bins,histoL,histoR);
+	h_zoom_x = new TH1D("h_zoom_x",Form("X ion tag%d, channel %d, veto %.1f[ns] zoom in",tag,Tof_Channel2Read,Tof_veto),bins,histoL,histoR);
 	//h_zoom_x_shadow = new TH1D("h_zoom_x_shadow","X ion(tag0 or tag1) zoom in",bins,histoL,histoR);
 
 
@@ -4220,6 +4223,19 @@ double* MassExcess(double mass_value,double mass_value_err, bool verbal=true){
 		double mass_excess = mass_value - A*1e6;  // unit in micro u
 		return TokeV90(mass_excess,mass_value_err,verbal);
 		
+
+}
+
+double* keV90ToMircoAMU(double mass_keV, double mass_keV_err,bool verbal=true){
+		static double massreturn[2];
+		massreturn[0]=0; massreturn[1]=0;
+		double massuamu = mass_keV * Coeff_keV_2_uamu;
+		double massuamu_err = (mass_keV*err_Coeff_keV_2_uamu)*(mass_keV*err_Coeff_keV_2_uamu) + (Coeff_keV_2_uamu*mass_keV_err)*(Coeff_keV_2_uamu*mass_keV_err);
+		massuamu_err = TMath::Sqrt(massuamu_err);
+		if(verbal)printf("mass in mirco amu: %.5f(%.5f) uamu\n",massuamu,massuamu_err);
+		massreturn[0] = massuamu;
+		massreturn[1] = massuamu_err;
+		return massreturn;
 
 }
 
