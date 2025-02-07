@@ -39,6 +39,7 @@ public:
 		bool useMC; // MC simulation for getting fitting error
 		double sample_range_L; // half range for fit
 		double sample_range_R;
+		bool EnableFunc_refInitialize;
 
 
 		int GetNumberOfPeaks(){return NumOfPeaks;}
@@ -90,6 +91,13 @@ public:
 		}
 
 		void Initial_par_ref(TH1D* _hin, double left_range, double right_range){
+			if(!EnableFunc_refInitialize && func_ref == NULL){
+				EnableFunc_refInitialize=true;
+				cout<<endl;
+				cout<<"\e[1;31m Warnning: Reference function not exist; Automatically set EnableFunc_refInitialize-> true  by default \e[0m"<<endl;
+			}
+
+			if(!EnableFunc_refInitialize) return;
 			if(func_ref!=NULL){delete func_ref; func_ref=NULL;}
 			if(par_ref!=NULL) delete[] par_ref;
 			pars_per_peak = 5+Norder*2;
@@ -344,6 +352,8 @@ public:
 		}
 
 		void MakeFitFunc_ref(){
+			if(!EnableFunc_refInitialize){return;}			
+
 			if(func_ref!=NULL){delete func_ref; delete func_ref_cp;}
 			func_ref = new TF1("fextend_ref",this,&funcN::fitfunc,0,25e6,pars_per_peak,"1func_ref","1fitfunc_ref");
 			func_ref_cp = new TF1("fextend_ref_cp",this,&funcN::fitfunc,0,25e6,pars_per_peak,"1func_ref","1fitfunc_ref");
@@ -521,7 +531,13 @@ public:
 
 		void Fit_ref(TH1D* h_in, double _rangeL, double _rangeR, string fitopt="LMEQ"){
 
-			FitHelper(func_ref,h_in,_rangeL,_rangeR,Norder,fitopt);//return;
+			if(EnableFunc_refInitialize) FitHelper(func_ref,h_in,_rangeL,_rangeR,Norder,fitopt);//return;
+			else{
+				for(int index=0;index< pars_per_peak;index++){
+					func_ref->ReleaseParameter(index);
+				}
+			}
+
 			for(int i=0;i<50;i++){
 				h_in->Fit(func_ref,(fitopt+"N").c_str(),"",_rangeL,_rangeR);
 				if(i<40){SetParLimitAuto(func_ref,Norder);}
@@ -711,6 +727,8 @@ public:
 			FreeRange =true;
 			AutoUpdateMainPeakIndex=true;
 			useMC=false;
+
+			EnableFunc_refInitialize=true;
 		}
 
 		~funcN(){
