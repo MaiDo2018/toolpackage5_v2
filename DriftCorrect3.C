@@ -1060,9 +1060,9 @@ double* FeaturePar(TH1D* _inhisto,Long64_t _min_evt, Long64_t _max_evt){
 
     double maincounts = _inhisto->Integral();
 
-    //scott rule for bin size:  bin size= 3.49*sigma*(counts)^(-1/3)
+    //scott rule for bin size:  bin size= 3.49*sigma*(counts)^(-1/3)  // x0.7 my try
 
-    par_return[3] = 3.49 * par_return[2] *TMath::Power(maincounts,-1./3.);
+    par_return[3] = 3.49 * par_return[2] *TMath::Power(maincounts,-1./3.) * 0.7;
 
     _inhisto->GetXaxis()->UnZoom();
 

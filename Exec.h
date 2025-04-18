@@ -10,11 +10,12 @@
 #include "TFrame.h"
 #include "TVirtualX.h"
 #include <stack>
+#include "TLine.h"
 
 TCanvas* c_handle;
 bool stack2clear[2] = {1,1};
 // fit setting
-string AFitOption= "LMEQ";
+string AFitOption= "LEQ";  // "using option M will lead to message "variable not depend on X variable.........." output when parameters limits are set. !!!!!!!!!!!!
 int AFitSetFunc=2;
 char AFit_x_r = 'x';
 bool FixFitRange=false;
@@ -48,9 +49,11 @@ void Exec(int index=1){
 
     static double xmouse[2] = {0};
     static int imouse = 0;
-    static TH1D* h_history[2] = {};
+    static TH1D* h_history[2] = {NULL,NULL};
     static stack<double> lowlimit[2];
     static stack<double> highlimit[2];
+
+    static TLine* Mycursor[2]={NULL,NULL};
 
     c_handle = (TCanvas*)gPad->GetCanvas();
     c_handle->FeedbackMode(kTRUE);
@@ -74,7 +77,7 @@ void Exec(int index=1){
 
   //cout<<"\r"<<"index = "<<index<<flush;
 
-
+  gVirtualX->SetDoubleBufferOFF();
 
     // new histogram setting, clear stack;
     if(index==1){
@@ -162,7 +165,7 @@ void Exec(int index=1){
    else if(strcmp(getname,"h_refF") ==0){index=2;}
    else return;*/
     
-    gVirtualX->DrawLine(px,uymin,px,uymax);
+    gVirtualX->DrawLine(px,pymin,px,pymax);
 
    // printf("px=%d , py=%d, upx=%f, x=%f\n",px,py,upx,x);
   }
@@ -275,6 +278,10 @@ void Exec(int index=1){
                 tem_func = fext->GetFuncRef(); //c_handle->cd(4);tem_func->Draw("same");// printChi() uses global handle of func
                 printChi(h_zoom_ref,'r',fitrangeL , fitrangeR);
                 tof_ref_cento = fext->GetsPeakCenter();
+                fitL_width = tof_ref_cento - fitrangeL;
+                fitR_width = fitrangeR - tof_ref_cento;
+                fext->FreeRange=false;
+                FixFitRange =true;
                 tof_ref_cento_err = fext->GetsPeakCenter_err();
                 fext->MakeFitFunc_N();
                 tem_func = fext->GetFuncX(); //make the current fitting recognised
@@ -299,6 +306,10 @@ void Exec(int index=1){
                 tem_func = fext->GetFuncRef(); //c_handle->cd(2);tem_func->Draw("same");
                 printChi(h_zoom_x,'x',Tmin ,Tmax);
                 tof_ref_cento = fext->GetsPeakCenter();
+                fitL_width = tof_ref_cento - Tmin;
+                fitR_width = Tmax - tof_ref_cento;
+                fext->FreeRange=false;
+                FixFitRange=true;
                 tof_ref_cento_err = fext->GetsPeakCenter_err();
                 fext->MakeFitFunc_N();
                 tem_func = fext->GetFuncX();
@@ -341,22 +352,40 @@ void Exec(int index=1){
 
                   //*************** fit with sampling function ******************
                   if(tem_func_name == "fsample"){
-                      if(fs->GetOldNPeaks() != fs->NumOfPeaks){fs->Makefitfunc();}
+                      if(fs->GetOldNPeaks() != fs->NumOfPeaks){fs->Makefitfunc(); tem_func=fs->Getfitfunc(); }// get handle of fs
 
                        if(NumOfPeaks==1){ // one peak
                           fs->SetPars(1,Max_high,Max_tof);
                        }
                        else{// more than one peak
+                          double * temPx = new double[NumOfPeaks];
+                          double * temPy = new double[NumOfPeaks];
+                          int * sequencelist = new int[NumOfPeaks];
 
                           for(int i=0;i<NumOfPeaks;i++){
                             cout<<"draw an arrow from top of "<<"\e[1;33m"<<"Peak_"<<i+1<<"\e[0m"<<" to FWHM"<<endl;
                             cout<<"pending......"<<endl;
                             get_para_by_draw(2);
-                            fs->SetPars(i+1,tem_high,tem_cento);
-                            
+                            temPx[i] = tem_cento;
+                            temPy[i] = tem_high;                  
                           }
 
+                          TMath::Sort(NumOfPeaks,temPx,sequencelist,kFALSE);
+
+                          cout<<endl;
+                          cout<<"Initialize Amp and position of peaks by cursor:"<<endl;
+                          cout<<"Peak index \t Amp \t tof"<<endl;
+
+                          for(int i=0;i<NumOfPeaks;i++){
+                              fs->SetPars(i+1,temPy[sequencelist[i]],temPx[sequencelist[i]]);
+                              printf("Peak%d \t %f \t %.1f\n",i+1,temPy[sequencelist[i]],temPx[sequencelist[i]]);
+                          }
+
+                          delete[] temPx;
+                          delete[] temPy;
+                          delete[] sequencelist;
                        }
+
 
                       fs->Fit(h_zoom_x,Tmin,Tmax,AFitOption);
                      // tem_func = fs->Getfitfunc();
@@ -370,14 +399,30 @@ void Exec(int index=1){
                            unbinned_fitR = tof_x_cento[i] + fs->range_R; // update fit right edge for unbinned fit
                       }
 
+
+                      if(fs->useMC){
+                          cout<<"\e[1;37m MC_toy (Nloops = "<<fs->GetMC_sim_counts(false)<<") estimated errors are adopted by default:\e[;37m"<<endl;
+                          double* MC_err_x = fs->GetMC_err_x();
+                          for(int i=0;i<NumOfPeaks;i++){
+                              tof_x_cento_err[i] = MC_err_x[i];
+                              printf("cento_%d: %.4f(%.4f)\n",i+1,tof_x_cento[i],tof_x_cento_err[i]);
+                          }
+                          cout<<"\e[0m"<<endl;
+                      }
+
                           unbinned_fitL = tof_x_cento[0] - fs->range_L;
                           unbinned_fitR = tof_x_cento[NumOfPeaks-1] + fs->range_R; // update fit right edge for unbinned fit
 
+
                       printChi(h_zoom_x,'x',unbinned_fitL,unbinned_fitR);
+/*
+printf("\n\ncursor define range: [%.4f  ,  %.4f]\n",Tmin,Tmax);
+printf("Fit Range in fact(limited by range of histo X, ratio of sampling width of left to right, and sampling width of left and right):\n [%.4f  ,  %.4f]\n",unbinned_fitL, unbinned_fitR);*/
 
                       if(fs->NumOfPeaks>1){  fs->Draw_subline(c1,2);  }
 
-                  }// end of sampling fit
+                  }// **************end of sampling fit
+                  //*****************  extend gaus-exp fitting
                   else if(tem_func_name == "fextend_N"){ //extend gaus-exp fitting
                       c_handle->cd(2)->SetEditable(kTRUE);
 
@@ -386,20 +431,55 @@ void Exec(int index=1){
                        }
                        else{// more than one peak
 
+                          double * temPx = new double[NumOfPeaks];
+                          double * temPy = new double[NumOfPeaks];
+                          int * sequencelist = new int[NumOfPeaks];
+
                           for(int i=0;i<NumOfPeaks;i++){
                             cout<<"draw an arrow from top of "<<"\e[1;33m"<<"Peak_"<<i+1<<"\e[0m"<<" to FWHM"<<endl;
                             cout<<"pending......"<<endl;
                             get_para_by_draw(2);
-                            fext->SetPars(i+1,tem_high,tem_cento);
-                            
+                            temPx[i] = tem_cento;
+                            temPy[i] = tem_high;  
                           }
 
+                          TMath::Sort(NumOfPeaks,temPx,sequencelist,kFALSE);
+
+                          cout<<endl;
+                          cout<<"Initialize Amp and position of peaks by cursor:"<<endl;
+                          cout<<"Peak index \t Amp \t tof"<<endl;
+
+                          for(int i=0;i<NumOfPeaks;i++){
+                              fext->SetPars(i+1,temPy[sequencelist[i]],temPx[sequencelist[i]]);
+                              printf("Peak%d \t %f \t %.1f\n",i+1,temPy[sequencelist[i]],temPx[sequencelist[i]]);
+                          }
+
+                          delete[] temPx;
+                          delete[] temPy;
+                          delete[] sequencelist;
                        }
 
-                       if(fext->GetNumberOfPeaks() != funcN::NPs2Set){
-                            if(fext->SetNumberOfPeaks(funcN::NPs2Set)) fext->MakeFitFunc_N();
-                            else return;
-                        }
+
+                      if(fext->GetNumberOfPeaks() != funcN::NPs2Set){
+                          if(fext->SetNumberOfPeaks(funcN::NPs2Set)){ 
+                                fext->MakeFitFunc_N(); 
+                                tem_func = fext->GetFuncX(); //make the current fitting recognised
+                           }
+                          else return;
+                      }else if(!fext->AutoUpdateMainPeakIndex){
+                                fext->MakeFitFunc_N(); 
+                                tem_func = fext->GetFuncX(); //make the current fitting recognised
+                      }
+                      else if(fext->AutoUpdateMainPeakIndex){
+                          fext->UpdateMainPeakIndexAuto();   // ==> auto find out the peak corresponds to the maximum Amp
+                          if(fext->IsChange_MainpeakIndex()){
+                              fext->MakeFitFunc_N(); 
+                              tem_func = fext->GetFuncX(); //make the current fitting recognised
+                          }
+
+                      }
+                      
+
 
                        fext->Fit_N(h_zoom_x,Tmin,Tmax,AFitOption);                      
                        c_handle->Modified(); c_handle->Update();
@@ -418,6 +498,9 @@ void Exec(int index=1){
 
                       printChi(h_zoom_x,'x',unbinned_fitL,unbinned_fitR);
 
+/*printf("\n\ncursor define range: [%.4f  ,  %.4f]\n",Tmin,Tmax);
+printf("Fit Range in fact(limited by range of histo X, ratio of sampling width of left to right, and sampling width of left and right):\n [%.4f  ,  %.4f]\n",unbinned_fitL, unbinned_fitR);*/
+
                       if(fext->GetNumberOfPeaks()>1){  fext->Draw_subline(c1,2);  }
                   }
                   else{//******************** fit with gaus_exp function *********************
@@ -431,11 +514,27 @@ void Exec(int index=1){
               else cout<<"Only canvas 2 has fitting function"<<endl;
 
       }
-     else if(press=='-'){
+      else if(press=='-'){
              double Tmin = TMath::Min(xmouse[0],xmouse[1]);
              double Tmax = TMath::Max(xmouse[0],xmouse[1]);
-          	 printf("x1=%.4f;\t x2=%.4f\n",Tmin,Tmax);
+          	 printf("x1= %.4f ;\t x2= %.4f\n",Tmin,Tmax);
           	 printf("distance:%.4f\n",Tmax-Tmin);
+      }
+      else if(press=='t'){
+             double Tmin = TMath::Min(xmouse[0],xmouse[1]);
+             double Tmax = TMath::Max(xmouse[0],xmouse[1]);
+             string tem_func_name = "No";
+             if(tem_func != NULL)tem_func_name =tem_func->GetName();
+
+             if(tem_func_name == "fextend_N") GetWeightTOF(Tmin,Tmax, fext->GetSigma());
+             else if(tem_func_name == "fsample") GetWeightTOF(Tmin,Tmax, fs->GetSigma());
+             else{
+                cout<<endl;
+                cout<<"\e[1;33m No sigma for the current fiting function, using sigma = 10 by default.\e[0m"<<endl;
+                printf("By using:  GetWeightTOF(%.4f, %.4f, 10)\n",Tmin,Tmax);
+                cout<<endl;
+                GetWeightTOF(Tmin,Tmax,10);
+             }
       }
       else if(press =='c'){
 
@@ -558,7 +657,7 @@ void Exec(int index=1){
           }
           else if(curvename == "fextend_N"){
               fext->FreeRange = !(fext->FreeRange);
-              if(fext->FreeRange){ cout<<"Set to FreeRange== true for sampling fitting, fitting range FREE now!!!"<<endl; FixFitRange =false;}
+              if(fext->FreeRange){ cout<<"Set to FreeRange== true for fext fitting, fitting range FREE now!!!"<<endl; FixFitRange =false;}
               else{ cout<<"Set to FreeRange== false"<<endl;
                       cout<<"fitting range fix with  same left and right tail ratio as sampling peak"<<endl;
                       FixFitRange=true;
@@ -732,7 +831,7 @@ bool Sampling(int padindex, double _rangeL, double _rangeR){
     }
     else{cout<<"Error in Smooth histogram!!! Abort!!!"<<endl; return false;}
 
-    if(fs->Draw(c1,padindex)){c1->cd(2);}
+    if(fs->Draw(c1,padindex)){fs->UpdateSigma();c1->cd(2);}
     else{cout<<"Error, faile to draw sampling line on histogram!!!"<<endl; return false;}
 
     return true;

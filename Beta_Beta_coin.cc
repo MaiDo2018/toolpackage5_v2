@@ -1694,7 +1694,7 @@ cout<<endl;
 
 
 
-Long64_t DownScale=1; // for beta raw histogram display; get data per DownScale events
+Long64_t DownScale=100; // for beta raw histogram display; get data per DownScale events
 bool StopFillBetaRawHisto = false;
 void SetStopFillBetaRawHisto(int sig){
 	StopFillBetaRawHisto =true;
@@ -2327,8 +2327,8 @@ cout<<"eje1 down= "<<ejection1_si1_v[1].size()<<endl;
 
 
 
-
-TCutG* BetaCut[15]={NULL};
+const int BeteCutNumber=25;
+TCutG* BetaCut[BeteCutNumber]={NULL};
 
 //**************** make time relative vs. Ekev for beta in each channel **********************
 // use it to make cut and to know the input time relative and Ekev is noise or not
@@ -2361,7 +2361,7 @@ bool MakeBetaCut_Or_FindSignal(Long64_t _TimeRelative, double _EkeV, int WhichCh
 	if(_TimeRelative != -1000 && _EkeV!=-1000){
 		bool Isnoise=false;
 		string energyName= Form("EkeV_%d",WhichChannel);
-		for(int i=0;i<15;i++){
+		for(int i=0;i<BeteCutNumber;i++){
 			if(BetaCut[i]!=NULL){
 				string xname=BetaCut[i]->GetVarX();
 				if(xname == energyName){
@@ -2388,13 +2388,13 @@ bool MakeBetaCut_Or_FindSignal(Long64_t _TimeRelative, double _EkeV, int WhichCh
     if(Clear0_Recreate1_Add2==2){// add cut
     	if(CutModifyCounter%2 ==1){// odd=> last active is made by loadcut; even -> last action is made by makecut
     		cutindex=0;
-    		for(int i=0;i<15;i++){
+    		for(int i=0;i<BeteCutNumber;i++){
     			if(BetaCut[i]!=NULL)cutindex++;
     		}
     	}
     } 
     else{
-	    for(int i=0;i<15;i++){
+	    for(int i=0;i<BeteCutNumber;i++){
 			  	if(BetaCut[i]!=NULL){
 			  	 	gROOT->GetListOfSpecials()->Remove((TObject*)BetaCut[i]);
 			  	 	delete BetaCut[i];
@@ -2406,7 +2406,7 @@ bool MakeBetaCut_Or_FindSignal(Long64_t _TimeRelative, double _EkeV, int WhichCh
 		TIter iter(gROOT->GetListOfSpecials());
 		while((obj=(TObject*)iter())){
 		  		string cutname = obj->GetName();
-		  		for(int i=0;i<15;i++){
+		  		for(int i=0;i<BeteCutNumber;i++){
 		  			string cutname_candidate = Form("Beta_cut_%d",i+1);
 		  			if(cutname == cutname_candidate){
 		  				gROOT->GetListOfSpecials()->Remove(obj);
@@ -2419,7 +2419,7 @@ bool MakeBetaCut_Or_FindSignal(Long64_t _TimeRelative, double _EkeV, int WhichCh
 	}
 
   if(Clear0_Recreate1_Add2==0){
-  		cout<<"\e[1;33m"<<"Beta cuts made by \"MakeBetaCut_Or_FindSignal()\" are all clear."<<endl;
+  		cout<<"\e[1;33m"<<"Beta cuts made by \"MakeBetaCut_Or_FindSignal()\" are all clear."<<"\e[0m"<<endl;
   		if(CutModifyCounter%2==0)CutModifyCounter+=2;
   		else CutModifyCounter++;
   		return true;
@@ -2433,8 +2433,8 @@ bool MakeBetaCut_Or_FindSignal(Long64_t _TimeRelative, double _EkeV, int WhichCh
 
 
     while(1){
-  		if(cutindex<15)cout<<"Add No. "<<cutindex+1<<" Beta noise cut? ('y' or 'n')"<<endl;
-  		else cout<<"[1;33m"<<"Maxmimum number of cuts =15. Overwrite No. "<<cutindex%15+1<<" Beta noise cut? ('y' or 'n')"<<endl;
+  		if(cutindex<BeteCutNumber)cout<<"Add No. "<<cutindex+1<<" Beta noise cut? ('y' or 'n')"<<endl;
+  		else cout<<"[1;33m"<<"Maxmimum number of cuts ="<<BeteCutNumber<<" Overwrite No. "<<cutindex%BeteCutNumber+1<<" Beta noise cut? ('y' or 'n')\e[0m"<<endl;
 
   		char yesorno='\0';
   		while(1){
@@ -2446,13 +2446,13 @@ bool MakeBetaCut_Or_FindSignal(Long64_t _TimeRelative, double _EkeV, int WhichCh
   		if(yesorno=='n') break;
   		if(yesorno=='y'){
   			//remove the one will be overwrited first
-  			if(cutindex>=15){
-  			  	gROOT->GetListOfSpecials()->Remove((TObject*)BetaCut[cutindex%15]);
+  			if(cutindex>=BeteCutNumber){
+  			  	gROOT->GetListOfSpecials()->Remove((TObject*)BetaCut[cutindex%BeteCutNumber]);
   			  	TObject* obj;
 				TIter iter(gROOT->GetListOfSpecials());
 				while((obj=(TObject*)iter())){
 					string cutname = obj->GetName();
-					string cutname_candidate = Form("Beta_cut_%d",cutindex%15+1);
+					string cutname_candidate = Form("Beta_cut_%d",cutindex%BeteCutNumber+1);
 					if(cutname == cutname_candidate){
 						gROOT->GetListOfSpecials()->Remove(obj);
 						break;
@@ -2460,28 +2460,28 @@ bool MakeBetaCut_Or_FindSignal(Long64_t _TimeRelative, double _EkeV, int WhichCh
 				  		
 				}
   	 			
-  	 			delete BetaCut[cutindex%15];	
-  	 			BetaCut[cutindex%15] = nullptr;
+  	 			delete BetaCut[cutindex%BeteCutNumber];	
+  	 			BetaCut[cutindex%BeteCutNumber] = nullptr;
   			}
 
   			  cout<< "\e[1;33m"<<"Draw Time relative and Energy cut at c_beta_coin_and_raw (1 or 2 or 3 or 4)"<<"\e[0m"<<endl;
 			  char cutname[15]={'\0'};
-			  sprintf(cutname,"Beta_cut_%d",cutindex%15+1);
-			  BetaCut[cutindex%15] = (TCutG*)c_beta_coin_and_raw->cd()->WaitPrimitive("CUTG");
-			  BetaCut[cutindex%15]->SetName(cutname);
+			  sprintf(cutname,"Beta_cut_%d",cutindex%BeteCutNumber+1);
+			  BetaCut[cutindex%BeteCutNumber] = (TCutG*)c_beta_coin_and_raw->cd()->WaitPrimitive("CUTG");
+			  BetaCut[cutindex%BeteCutNumber]->SetName(cutname);
 			  TObject* obj;
 			  TIter iter(gROOT->GetListOfSpecials());
 			  bool IsExistInList=false;
 			  while((obj=(TObject*)iter())){
 			  		string cutname = obj->GetName();
-					string cutname_candidate = Form("Beta_cut_%d",cutindex%15+1);
+					string cutname_candidate = Form("Beta_cut_%d",cutindex%BeteCutNumber+1);
 					if(cutname == cutname_candidate){
 						IsExistInList = true;
 						break;
 					}
 				  		
 			  }
-			  if(!IsExistInList)gROOT->GetListOfSpecials()->Add((TObject *)BetaCut[cutindex%15]);			  
+			  if(!IsExistInList)gROOT->GetListOfSpecials()->Add((TObject *)BetaCut[cutindex%BeteCutNumber]);			  
   		}
 
 		cutindex++;
@@ -2497,7 +2497,7 @@ bool MakeBetaCut_Or_FindSignal(Long64_t _TimeRelative, double _EkeV, int WhichCh
     cutf = new TFile(cutf_name.c_str(),"RECREATE");
     if(!cutf->IsOpen()){ cout<<"Can not recreate file.... Please check the path.... Abort!!!!"<<endl; return false;}
 	  cutf->cd();
-	  for(int i=0;i<15;i++){
+	  for(int i=0;i<BeteCutNumber;i++){
 	  		if(BetaCut[i]!=NULL)BetaCut[i]->Write(BetaCut[i]->GetName());
 	  }
 	  cutf->ls();
@@ -2526,7 +2526,7 @@ bool LoadBetaCut(TFile* RootfilePtr= nullptr){
 	if(RootfilePtr!=nullptr)RootfilePtr->cd();
 
 	//%%%%%%%%%%%%%%%%% clear exist cut in memory
-	for(int i=0;i<15;i++){
+	for(int i=0;i<BeteCutNumber;i++){
 	  	if(BetaCut[i]!=NULL){
 	  	 	gROOT->GetListOfSpecials()->Remove((TObject*)BetaCut[i]);
 	  	 	delete BetaCut[i];
@@ -2538,7 +2538,7 @@ bool LoadBetaCut(TFile* RootfilePtr= nullptr){
   TIter iter(gROOT->GetListOfSpecials());
   while((obj=(TObject*)iter())){
   		string cutname = obj->GetName();
-  		for(int i=0;i<15;i++){
+  		for(int i=0;i<BeteCutNumber;i++){
   			string cutname_candidate = Form("Beta_cut_%d",i+1);
   			if(cutname == cutname_candidate){
   				gROOT->GetListOfSpecials()->Remove(obj);
@@ -2553,7 +2553,7 @@ bool LoadBetaCut(TFile* RootfilePtr= nullptr){
   TIter nextobj(fcut_in->GetListOfKeys());
   while( (obj = (TObject *)nextobj()) ){
     if(fcut_in->Get(obj->GetName())->InheritsFrom("TCutG")){
-    	if(ncut<15){
+    	if(ncut<BeteCutNumber){
 	      BetaCut[ncut] = (TCutG *)fcut_in->Get(obj->GetName());
 	      ncut++;
   		}

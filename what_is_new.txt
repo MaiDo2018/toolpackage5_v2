@@ -1,0 +1,44 @@
+1. file name is now visible as title of the main window.
+
+
+2. MonteCarlo (MC) estimator for fitting error is available for sampling fit (control handle--> " fs ") and Gaussian_exp fit (control hand--> fext):
+
+	To use enable / disable (default) it by executing the following command:
+
+		 fs->useMC = true /or false;   (when using sampling fit; "s" or "S")
+
+		fext->useMC = true /or false;   (when using Gaussian_exp fit; "e" or "E")
+
+
+
+	Read and set the number (N) of random histograms to be fitted in the MC simulation (the RMS of fitting results of N histograms will be the estimator of the fitting error ):
+
+		read:  fs->GetMC_sim_counts(); (default = 50)    set: fs->GetMC_sim_counts(100);  (set to 100 random histogram)  (when using sampling fit; "s" or "S")
+
+
+		read:  fext->GetMC_sim_counts(); (default = 100)    set: fext->GetMC_sim_counts(200);  (set to 200 random histogram)  (when using Gaussian_exp fit; "e" or "E")
+
+
+	Results will show in WHITE color when pressing "f" to fit. NOTE:
+
+		For Gaussian_exp, MC simulate will be skipped if the error is estimated to be < o.1 ns basing on statistics (strong peak).
+
+		For sampling,  MC estimated error will be adopted as fitting error of TOF automatically when MC_sim is ON.
+		But for Gaussian_exp, MC estimated errors are just shown for reference. (blinking) If want to using that value, manually copy them to
+
+			the corresponding global variable:  
+					Reference ion: tof_ref_cento_err;  		X ion: tof_x_cento_err[ipeak];
+
+
+
+
+3. Using cursor define a region on Pad2 and then press 't' --> calculate the average of TOF of all counts (N) in the designated region. 
+   And the error is calculated by sigma/Sqrt(N) to evaluate the TOF of peak with very low statistics if fitting is fail or the error given looks weird.
+
+	sigma is from the current function of "reference peak" (the peak fitted most recently by using "s, S, e, or E")
+
+	If function for "reference peak" is not available, sigma = 10 is used.
+
+	to use sigma of other value, just use the command the display after press 't' and change the last argument. For example:
+
+		GetWeightTOF( _tofL, _tofR, 5);   --> set sigma to 5

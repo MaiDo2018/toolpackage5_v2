@@ -48,6 +48,8 @@ void batchplot(string path="../",string filename="not include .txt",double mass_
 	vector<double> mass_cal_err;
 	vector<double> delta_mass;
 	vector<double> delta_mass_err;
+	vector<string> runname_v;
+	vector<int> drawingbit_v;
 
 
 	int charge_x;
@@ -86,6 +88,9 @@ void batchplot(string path="../",string filename="not include .txt",double mass_
 			mass_cal_err.push_back(tem_mass_cal_err);
 			delta_mass.push_back(tem_delta_mass);
 			delta_mass_err.push_back(tem_delta_mass_err);
+			runname_v.push_back(runname);
+			drawingbit_v.push_back(DrawingBit);
+
 
 			Ref_Ion ref_info_run(massref_ame,massref_err_ame,charge_r,refname);
 			ion_each_run.LoadData(runname,ionname,tem_mass_cal,tem_mass_cal_err,tem_delta_mass,tem_delta_mass_err,
@@ -129,37 +134,74 @@ kkkk++;
 	double * mass_cal2plot=NULL, *mass_cal_err2plot=NULL;
 
 	int counter=0;    // record how many groups of data will be plotted actually;
-	if(indexStop==-1){
-		indexStop = mass_cal.size()-1;  // index begins from 0 here;
+	string fileout;
+
+	if(!haveDrawBit){ // case of old version files without drawbit
+			if(indexStop==-1){
+				indexStop = mass_cal.size()-1;  // index begins from 0 here;
+			}
+
+			mass_cal2plot = new double[indexStop-indexStart+1];
+			mass_cal_err2plot = new double[indexStop-indexStart+1];
+			int index=0;
+			for(unsigned int i=0;i<mass_cal.size();i++){
+				if(i>=indexStart && i<=indexStop){
+						mass_cal2plot[index]=mass_cal[i];
+						mass_cal_err2plot[index++]=mass_cal_err[i];
+						counter++;
+				}
+			}
+			
+
+			for(int i=0;i<counter;i++){
+				printf("%.4f(%.4f)\n",mass_cal2plot[i],mass_cal_err2plot[i]);
+			}
+
+
+			fileout = Form("%splotnote_%s.txt",path.c_str(),time_str);
+			fp = fopen(fileout.c_str(),"w");
+			fprintf(fp,"input file: %s \n",filename.c_str());
+
+			if(indexStop== mass_cal.size()-1){
+				fprintf(fp,"plot index range(begins from 0): %d - end \n",indexStart);
+			}
+			else{
+				fprintf(fp,"plot index range(begins from 0): %d - %d \n",indexStart,indexStop);
+			}
+
+	}else{ // cases of new version files with drawbit
+
+			for(unsigned int i=0;i<drawingbit_v.size();i++){
+				if(drawingbit_v[i]==1) counter++;
+			}
+
+			printf("Get %d run files to draw.\n",counter);
+			cout<<endl;
+
+			mass_cal2plot = new double[counter];
+			mass_cal_err2plot = new double[counter];
+			int index=0;
+			for(unsigned int i=0;i<mass_cal.size();i++){
+				if(drawingbit_v[i] == 1){
+						mass_cal2plot[index]=mass_cal[i];
+						mass_cal_err2plot[index++]=mass_cal_err[i];
+						printf("Get index %d: %.4f(%.4f)\n",i,mass_cal[i],mass_cal_err[i]);
+				}
+			}
+			
+
+			fileout = Form("%splotnote_%s.txt",path.c_str(),time_str);
+			fp = fopen(fileout.c_str(),"w");
+			fprintf(fp,"input file: %s \n\n",filename.c_str());
+
+			for(unsigned int i=0;i<drawingbit_v.size();i++){
+				if(drawingbit_v[i] == 1){
+					fprintf(fp,"%s \n",runname_v[i].c_str());
+				}
+			}
+
 	}
 
-	mass_cal2plot = new double[indexStop-indexStart+1];
-	mass_cal_err2plot = new double[indexStop-indexStart+1];
-	int index=0;
-	for(unsigned int i=0;i<mass_cal.size();i++){
-		if(i>=indexStart && i<=indexStop){
-				mass_cal2plot[index]=mass_cal[i];
-				mass_cal_err2plot[index++]=mass_cal_err[i];
-				counter++;
-		}
-	}
-	
-
-	for(int i=0;i<counter;i++){
-		printf("%.4f(%.4f)\n",mass_cal2plot[i],mass_cal_err2plot[i]);
-	}
-
-
-	string fileout = Form("%splotnote_%s.txt",path.c_str(),time_str);
-	fp = fopen(fileout.c_str(),"w");
-	fprintf(fp,"input file: %s \n",filename.c_str());
-
-	if(indexStop== mass_cal.size()-1){
-		fprintf(fp,"plot index range(begins from 0): %d - end \n",indexStart);
-	}
-	else{
-		fprintf(fp,"plot index range(begins from 0): %d - %d \n",indexStart,indexStop);
-	}
 
 		
 	vector<double>getprintdata = PlotMultiMassResult(counter,mass_cal2plot,mass_cal_err2plot,mass_amu,mass_err_amu,YMaximum);

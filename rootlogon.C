@@ -73,10 +73,10 @@ void rootlogon() {
 
 void welcome(){
 	std::cout<<"**************************************"<<std::endl;
-	std::cout<<"* 		To analyse mass      *"<<std::endl;
-	std::cout<<"*		   Run	      	     *"<<std::endl;
-	std::cout<<"*		.L preview3.C+	     *"<<std::endl;
-	std::cout<<"*   for beta-tof .L preview4.C+	     *"<<std::endl;
+	std::cout<<"* 	To analyse mass	  	     *"<<std::endl;
+	std::cout<<"*		Run   	      	     *"<<std::endl;
+	std::cout<<"*	.L preview5.C+		     *"<<std::endl;
+	//std::cout<<"*   for beta-tof .L preview4.C+	     *"<<std::endl;
 	std::cout<<"*   for more information => help()   *"<<std::endl;
 	std::cout<<"**************************************"<<std::endl; 
 }
