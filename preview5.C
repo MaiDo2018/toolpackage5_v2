@@ -81,6 +81,7 @@
 #include "func2.h"   // define fit function
 #endif
 
+#include "TVirtualFitter.h"
 #include "Math/MinimizerOptions.h"// for ROOT::Math::MinimizerOptions...........
 #include "Math/GenAlgoOptions.h"
 #include "Math/WrappedMultiTF1.h"
@@ -1523,6 +1524,7 @@ if(!dflag)useTOFveto(veto_test);
 			}
 			else h_ref2D->Draw("colz");
 
+
 /*	GetToF_w_Twin(intree,h_xF_tem,"time:sweeps_global","",0,Tof_Channel2Read,Tof_veto,nullptr,nullptr,false);
 	GetToF_w_Twin(intree,h_refF_tem,"time:sweeps_global","",1,Tof_Channel2Read,Tof_veto,nullptr,nullptr,false);
 	GetToF_w_Twin(intree,h_refS_tem,"time:sweeps_global","",1,Tof_Channel2Read,Tof_veto,nullptr,nullptr,false);
@@ -1634,6 +1636,8 @@ if(!dflag)useTOFveto(veto_test);
 	}
 	ROI_INDEX =1;
 	ROI_initial = false; //reset ROI staus for interactive mode
+
+	c1->SetTitle( ("previewer -->   "+FileName).c_str() );
 
 	c1->Modified();
 	c1->Update();
@@ -2146,8 +2150,12 @@ void get_para_by_draw(int canvas){
 }
 
 void printChi(TH1D* hin, char whichhist, double _fitRangeL, double _fitRangeR){
+
 	int binL = hin->FindBin(_fitRangeL); int binR = hin->FindBin(_fitRangeR);
+//cout<<"binL = "<<binL<<", binR = "<<binR<<endl;
+
 	int nfreepars = tem_func->GetNumberFreeParameters();
+
 	int ninputpoints = 0;  // number of vaild input data ==> non-zero points
 	for(int i=binL;i<=binR;i++){	if(hin->GetBinContent(i)>0) ninputpoints++;	} 
 	int NDF = ninputpoints - nfreepars;
@@ -3471,8 +3479,14 @@ void fitgeneralcurve(char whichhisto,int func1ORfunc2, int NumPeaks2Fit, int whi
 
 
 void initializer(){
-	//	ROOT::Math::MinimizerOptions::SetDefaultMaxIterations(100000);
-	//	ROOT::Math::MinimizerOptions::SetDefaultMaxFunctionCalls(1000000);
+		ROOT::Math::MinimizerOptions::SetDefaultMaxIterations(1000000);
+		ROOT::Math::MinimizerOptions::SetDefaultMaxFunctionCalls(1000000);
+TVirtualFitter::SetMaxIterations(1000000);
+	if(gROOT->GetClass("ROOT::Minuit2::Minuit2Minimizer") != nullptr){
+		ROOT::Math::MinimizerOptions::SetDefaultMinimizer("Minuit2");
+	}
+
+
 		initializer_func1();
 		initializer_func2();
 		for(int i=0;i<30;i++){	FHistory[i]=NULL;}
@@ -6600,8 +6614,46 @@ void ShowBeta_Tof_2D(bool _makecut=false){
 		}
 }
 
+
+
+
 double* gtof=NULL; // test for tof veto
 double* gsweesps_globel=NULL; // test for tof veto
+
+double UnbinnedRangeL_FCN=0; // define range of normalized fitting function
+double UnbinnedRangeR_FCN=0;
+TF1* norm_FCN = NULL;
+bool initialized_norm_FCN =true;
+
+
+double  Normalized_FCN(double* x, double* par){
+		static vector<double> par_v;
+		static double Func_Integral=1;
+		int Npars = tem_func->GetNpar();
+		bool IsParsChange =false;
+
+		if(initialized_norm_FCN){
+			par_v.clear();
+			for(int ipar=0;ipar<Npars;ipar++){ par_v.push_back(par[ipar]); }
+			initialized_norm_FCN = false;
+			IsParsChange = true;
+		}else{
+			for(int ipar=0;ipar<Npars;ipar++){
+				if(par_v[ipar] != par[ipar]){ 
+					IsParsChange = true;
+					par_v[ipar] = par[ipar];
+				}
+			}
+		}
+
+		if(IsParsChange){
+			tem_func->SetParameters(par);
+			Func_Integral = tem_func->Integral(UnbinnedRangeL_FCN,UnbinnedRangeR_FCN);
+		}
+
+		return (tem_func->Eval(x[0])) / Func_Integral;
+}
+
 
 
 void UnbinnedFit(TF1* func_handle,string _treename, TH1D* outhisto, double _fitL, double _fitR){
@@ -6609,7 +6661,48 @@ void UnbinnedFit(TF1* func_handle,string _treename, TH1D* outhisto, double _fitL
 	if(outhisto==NULL){cout<<"\e[1;31m"<<"h_zoom_x is not exist; abort!!!"<<"\e[0m"<<endl; return;}
 
 	long Numdata=0;
-	double* _intof=NULL;	
+	double* _intof=NULL;
+
+UnbinnedRangeL_FCN = _fitL;
+UnbinnedRangeR_FCN = _fitR;
+
+    int Npars = func_handle->GetNpar();
+    double* Pars = func_handle->GetParameters();
+    vector<double> temPx;  // for setting position limit
+    int peakindex=0; // for seting position limit
+    double temFWHM=10;  // default for fit function other than fs and fext
+
+    string funcname = func_handle->GetName();
+
+    if(funcname == "fsample"){  temFWHM = fs->GetFWHM(); }
+    else if(funcname == "fextend_N"){ temFWHM = fext->GetFWHM();} 
+
+    double* Limits_L= new double[Npars]; // store the params limits of fitting function
+    double* Limits_R= new double[Npars];
+    for(int index=0;index<Npars;index++){
+    	func_handle->GetParLimits(index,Limits_L[index],Limits_R[index]);
+    	//func_handle->ReleaseParameter(index);
+    	double parVal= func_handle->GetParameter(index);
+    	if(parVal>_fitL && parVal<_fitR) temPx.push_back(parVal);
+    }
+
+	if(norm_FCN != NULL){delete norm_FCN; norm_FCN = NULL;}
+
+	norm_FCN = new TF1("norm_FCN",Normalized_FCN,UnbinnedRangeL_FCN,UnbinnedRangeR_FCN,Npars);
+
+	// copy parameters setting from fitting function to norm_FCN
+	norm_FCN->SetParameters(Pars);
+	norm_FCN->SetParErrors(func_handle->GetParErrors());
+	for(int index=0;index<Npars;index++){
+    	norm_FCN->SetParLimits(index,Limits_L[index],Limits_R[index]);
+    }
+
+	initialized_norm_FCN =true; //global variable ; refresh memory of normalization function every time
+
+	TF1* func_handle_cp = func_handle;
+
+	func_handle = norm_FCN; // just borrow the name of this pointer to have less modification
+
 
 	//*********** Get data for fit ***************************
 	if(_treename == "intree"){ // tree without beta correlation
@@ -6678,8 +6771,7 @@ void UnbinnedFit(TF1* func_handle,string _treename, TH1D* outhisto, double _fitL
     ROOT::Fit::Fitter fitter;
     fitter.SetFunction( fitFunction, false);
 
-    int Npars = func_handle->GetNpar();
-    double* Pars = func_handle->GetParameters();
+
     fitter.Config().SetParamsSettings(Npars,Pars);
   //  printf("original par0=%.4f, par1=%.4f\n",Pars[0],Pars[1]);
 
@@ -6689,26 +6781,59 @@ void UnbinnedFit(TF1* func_handle,string _treename, TH1D* outhisto, double _fitL
 
 
     for(int ipar=0;ipar<Npars; ipar++){
-    	if(func_handle->GetParError(ipar)==0){
-    		fitter.Config().ParSettings(ipar).Fix();
+    	if(Limits_L[ipar] ==Limits_R[ipar] && Limits_L[ipar] != 0){
+    		fitter.Config().ParSettings(ipar).Fix(); // shape params
     	}
     	else{
     		double parvalue = func_handle->GetParameter(ipar);
-    		if(parvalue>_fitL && parvalue<_fitR){
-    			fitter.Config().ParSettings(ipar).SetLimits(_fitL,_fitR);
+    		if(parvalue>_fitL && parvalue<_fitR){ // this is peak param
+
+    			if(false){ fitter.Config().ParSettings(ipar).SetLimits(parvalue-temFWHM*3 , parvalue+temFWHM*3); } // FWHM is known for fs and fext
+    			else{ // FWHM is unknow for other case
+    				    if(temPx.size()>1){ // multiple peaks case
+				    			if(peakindex==0){ fitter.Config().ParSettings(ipar).SetLimits( TMath::Max(_fitL,parvalue-temFWHM*2.5) , TMath::Min(parvalue+temFWHM*2.5,temPx[peakindex+1]) );
+//				 printf("%.2f par limit(%.2f , %.2f)\n",parvalue,TMath::Max(_fitL,parvalue-temFWHM*2.5) , TMath::Min(parvalue+temFWHM*2.5,temPx[peakindex+1]) );
+				    			}  // position params
+				    			else if(peakindex == (int)temPx.size()-1){ fitter.Config().ParSettings(ipar).SetLimits( TMath::Max(temPx[peakindex-1],parvalue-temFWHM*2.5) , TMath::Min(parvalue+temFWHM*2.5,_fitR) );
+//printf("%.2f par limit(%.2f , %.2f)\n",parvalue,TMath::Max(temPx[peakindex-1],parvalue-temFWHM*2.5) , TMath::Min(parvalue+temFWHM*2.5,_fitR) );
+				    			}
+				    			else{ fitter.Config().ParSettings(ipar).SetLimits( TMath::Max(temPx[peakindex-1],parvalue-temFWHM*2.5) , TMath::Min(parvalue+temFWHM*2.5,temPx[peakindex+1]) );  
+//printf("%.2f par limit(%.2f , %.2f)\n",parvalue,TMath::Max(temPx[peakindex-1],parvalue-temFWHM*2.5) , TMath::Min(parvalue+temFWHM*2.5,temPx[peakindex+1]) );
+
+				    			}
+				    			peakindex++;
+    					}else{
+    							fitter.Config().ParSettings(ipar).SetLimits( _fitL, _fitR); 
+    							fitter.Config().ParSettings(ipar).SetLimits( TMath::Max(_fitL,parvalue-temFWHM*2.5), TMath::Min(parvalue+temFWHM*2.5,_fitR) ); 
+//printf("par limit(%.2f , %.2f)\n",TMath::Max(_fitL,parvalue-temFWHM*2.5), TMath::Min(parvalue+temFWHM*2.5,_fitR));
+    					}
+    			}
+
     		}
-    		else{fitter.Config().ParSettings(ipar).SetLimits(0,parvalue*10); } //!!!!! very important!!!! otherwise fitting fail
+    		else{fitter.Config().ParSettings(ipar).SetLimits(0.5*parvalue,parvalue*2.5); } //!!!!! very important!!!! otherwise fitting fail // amplitude params  // for extend fit SetLimits(0,parvalue*10); originally
     		
     	}
     }
 
+ //char ttt;
+ //cin>>ttt;
+
 	fitter.Config().SetUpdateAfterFit();
-	fitter.LikelihoodFit(data,true);
+	for(int ifit=0;ifit<8;ifit++){
+		fitter.LikelihoodFit(data,false);// (data,true);  true for extended liklihood fitted
+	}
     TFitResult r=fitter.Result();
     r.Print();
     cout<<endl;
+
+func_handle = func_handle_cp;
+
     func_handle->SetParameters(r.Parameters().data());
     func_handle->SetParErrors(r.Errors ().data());
+
+    for(int index=0;index<Npars;index++){
+    	func_handle->SetParLimits(index,Limits_L[index],Limits_R[index]);
+    }
 
 
     double sum=0;
@@ -6717,7 +6842,7 @@ void UnbinnedFit(TF1* func_handle,string _treename, TH1D* outhisto, double _fitL
     }
 
     //&********** Adjust a proper amplitude  of fititng curve for display ***************
-    string funcname = func_handle->GetName();
+   // string funcname = func_handle->GetName();
     if(funcname == "fsample"){
     	for(int ip=0;ip<fs->NumOfPeaks;ip++){
     		double ampnow = func_handle->GetParameter(2*ip);
@@ -6725,6 +6850,8 @@ void UnbinnedFit(TF1* func_handle,string _treename, TH1D* outhisto, double _fitL
     		tof_x_cento[ip] = func_handle->GetParameter(2*ip+1);
     		tof_x_cento_err[ip] = func_handle->GetParError(2*ip+1);
     		printf("cento_%d: %.4f(%.4f)\n",ip+1,tof_x_cento[ip],tof_x_cento_err[ip]);
+    		func_handle->ReleaseParameter(2*ip); // release Amp params
+    		func_handle->ReleaseParameter(2*ip+1); // release position params   just make sure this param is free for fitting
     	}
     }
     else if(funcname == "fextend_N"){
@@ -6737,7 +6864,8 @@ void UnbinnedFit(TF1* func_handle,string _treename, TH1D* outhisto, double _fitL
     		func_handle->SetParameter(para_offset,ampnow/(sum/Numdata));
     		tof_x_cento[ip] = fext->GetTofCenter(ip+1);
     		tof_x_cento_err[ip] = fext->GetTofCenterErr(ip+1);
-    		
+    		func_handle->ReleaseParameter(para_offset);    // release Amp params
+    		func_handle->ReleaseParameter(para_offset+1);   // release position params	       just make sure this param is free for fitting
     	}
     }
     else{
@@ -6748,7 +6876,8 @@ void UnbinnedFit(TF1* func_handle,string _treename, TH1D* outhisto, double _fitL
     		tof_x_cento[ip] = func_handle->GetParameter(ipar+1);
     		tof_x_cento_err[ip] = func_handle->GetParError(ipar+1);
     		printf("cento_%d: %.4f(%.4f)\n",ip+1,tof_x_cento[ip],tof_x_cento_err[ip]);
-
+    		func_handle->ReleaseParameter(ipar);
+    		func_handle->ReleaseParameter(ipar+1);
     	}
     	
     }
@@ -6769,10 +6898,64 @@ void UnbinnedFit(TF1* func_handle,string _treename, TH1D* outhisto, double _fitL
 	//if(_treename != "intree") delete[] _intof;
 
 	delete[] _intof;
-
+	delete[] Limits_L;
+	delete[] Limits_R;
 }
 
 
+
+double* GetWeightTOF(double _tofL, double _tofR, double _sigma=10){ // return a pointer. If weighted TOF not available --> return [0] = -1; [1] = -1
+	static double WeightTOF[2];   // [0] --> time  [1] -->Error
+
+	if(_sigma<=0){
+		cout<<"\e[1;32m Error... sigma must >0\e[0m"<<endl;
+		WeightTOF[0] = -1; WeightTOF[1] = -1;
+		return WeightTOF;
+	}
+
+	long long Ncouts =0;
+	double weightTOF =0;
+
+
+	if(active_tree_name == "intree"){
+		if(Tof_array_hzoomx_entries==0){
+			cout<<"\e[1;32m No TOF candidate in memory!! Please create h_zoom_x first by defining range and press space in interaction mode. return -1;\e[0m"<<endl;
+			WeightTOF[0] = -1; WeightTOF[1] = -1;
+			return WeightTOF;
+		}
+
+		for(long long index=0;index<Tof_array_hzoomx_entries;index++){
+			if(Tof_array_hzoomx[index]>=_tofL && Tof_array_hzoomx[index]<=_tofR){ weightTOF+=Tof_array_hzoomx[index]; Ncouts++; }
+		}
+
+
+	}
+	else{
+		if(tof_unbinned.size()==0){
+			cout<<"\e[1;32m No Beta-TOF correlated candidates !!!!!\e[0m"<<endl;
+			WeightTOF[0] = -1; WeightTOF[1] = -1;
+			return WeightTOF;
+		}else{
+			for(unsigned long index=0;index<tof_unbinned.size();index++){
+				if(tof_unbinned[index] >= _tofL  &&  tof_unbinned[index] <= _tofR){  weightTOF+=tof_unbinned[index]; Ncouts++;  }
+			}
+		}
+	}
+
+
+	if(Ncouts>0){
+			WeightTOF[0] = weightTOF / Ncouts;
+			WeightTOF[1] = _sigma / TMath::Sqrt(Ncouts);
+			printf("mean TOF %lld  counts= %.4f(%.4f) , sigma = %.4f\n",Ncouts,WeightTOF[0],WeightTOF[1], _sigma);
+	}else{
+		cout<<"\e[1;32m No TOF candidate in designated region !!!!!\e[0m"<<endl;
+		WeightTOF[0] = -1; WeightTOF[1] = -1;
+	}
+
+	return WeightTOF;
+
+
+}
 
 
 

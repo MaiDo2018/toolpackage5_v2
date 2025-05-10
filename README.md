@@ -22,3 +22,5 @@ For detail introduction, please refer to documents in "demo" and videos below.
 
 Demo video：
 https://1drv.ms/f/c/107fa6fc1cbfed8d/EkB1vSMLjp9IujlS4tcKGQMBETyCDRof4BUFXrWUEbnRgQ?e=cy6wk1
+
+For patch3, please refer to what_is_new.txt for details of new feature

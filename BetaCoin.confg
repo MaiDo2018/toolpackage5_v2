@@ -7,7 +7,7 @@
 		MCAThreshold[0] = 500;  MCAThreshold[1] = 110; // MCA threshold setting [0] -> ch 1; [1] -> ch2
 		ADC_max_ch=16384;  // MCA maximum channel
 
-		MakeBetaRawTree=false;  // Make beta raw tree or not. --> consume hard disk space, but save RAM and time; NOTE: ONLY available in !BetaFastMode  !!!!!
+		MakeBetaRawTree=true;  // Make beta raw tree or not. --> consume hard disk space, but save RAM and time; NOTE: ONLY available in !BetaFastMode  !!!!!
 
 		BetaFastMode=false; // false -> load beta.lst in RAM (consume RAM but not require extra hard disk space);  true--> load only relevant beta.lst (time consuming, but require less RAM and hard disk space)
 		alphaMode=false;
@@ -18,7 +18,7 @@
 		RecordOnly_1st_beta_neg = false; // by default(no mattter set to true or false): using the average interval of the closet negative beta to Tof to evaluate the beta background rate
 												// set to "false" enable second method: beta counts / total observation time to evaluate the beta background rate; This result replaces the result by method 1
 		Times2Halflive=10;
-		SetRIHalflife(1180); // in [ms]
+		SetRIHalflife(6900); // in [ms]
 		SetBeta_E_Calibrate_para(0.2159461,-24.7021,0.360014,-6.56918);
 		//SetBeta_E_Calibrate_para(1,0,1,0);
 
@@ -33,8 +33,8 @@
 
 		//********** Set ADC threshold to filter raw data from each Si ***********
 		// data below threshold will be skiped and will not be in RAM
-		PreSetADC1_low_Thres_ch=1200; //1300; //1300; //500; //1200
-		PreSetADC2_low_Thres_ch=200; //200; //200; //190;//200
+		PreSetADC1_low_Thres_ch=0; //1300; //1300; //500; //1200
+		PreSetADC2_low_Thres_ch=0; //200; //200; //190;//200
 		
 		binwidth_fraction_halflife=10; // binwidth = halflife/10; for binwith of beta decay time spectrum
 
